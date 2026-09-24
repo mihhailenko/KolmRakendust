@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using System.IO;
 using System.Security.Cryptography;
+using System.Xml.Serialization;
 
 namespace KolmRakendust
 {
@@ -13,8 +14,17 @@ namespace KolmRakendust
         Panel pildiAla;
 
         CheckBox venita, lemmik;
-        Button kuva, eelmine, jargmine, lemmikudNupp, puhasta, sulge;
+        Button kuva, eelmine, jargmine, lemmikudNupp, puhasta, sulge, moveToAlbum;
         Label info;
+        TreeView albumTree;
+        Button uusAlbum, nimetaAlbum, kustutaAlbum;
+        PhotoLibrary library;
+        PhotoAlbum activeAlbum;
+        bool updatingTree;
+        // Fototeegi fail asub kasutaja arvutis, mitte programmi kaustas.
+        readonly string libraryDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "KolmRakendust", "PildiVaatamine");
 
         List<string> pildid = new List<string>();
         List<string> koikPildid = new List<string>();
@@ -35,19 +45,19 @@ namespace KolmRakendust
         public PildiVaatamine()
         {
             Text = "Pildi vaatamise programm";
-            ClientSize = new Size(700, 500);
+            ClientSize = new Size(1000, 500);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
 
             pildiAla = new Panel();
-            pildiAla.Location = new Point(20, 20);
-            pildiAla.Size = new Size(660, 360);
+            pildiAla.Location = new Point(260, 20);
+            pildiAla.Size = new Size(700, 360);
             pildiAla.AutoScroll = true;
 
             pilt = new PictureBox();
             pilt.Location = new Point(0, 0);
-            pilt.Size = new Size(660, 360);
+            pilt.Size = new Size(700, 360);
             pilt.BorderStyle = BorderStyle.FixedSingle;
             pilt.SizeMode = PictureBoxSizeMode.Zoom;
 
@@ -55,58 +65,64 @@ namespace KolmRakendust
 
             info = new Label();
             info.Text = "";
-            info.Location = new Point(20, 385);
-            info.Size = new Size(660, 25);
+            info.Location = new Point(260, 385);
+            info.Size = new Size(700, 25);
             info.TextAlign = ContentAlignment.MiddleCenter;
             info.AutoEllipsis = true;
 
             venita = new CheckBox();
             venita.Text = "Venita pilt";
-            venita.Location = new Point(20, 410);
+            venita.Location = new Point(260, 410);
             venita.AutoSize = true;
             venita.CheckedChanged += Venita_CheckedChanged;
 
             lemmik = new CheckBox();
             lemmik.Text = "Lemmik";
-            lemmik.Location = new Point(120, 410);
+            lemmik.Location = new Point(360, 410);
             lemmik.AutoSize = true;
             lemmik.CheckedChanged += Lemmik_CheckedChanged;
 
             kuva = new Button();
-            kuva.Text = "Vali pildid";
-            kuva.Location = new Point(150, 435);
+            kuva.Text = "Lisa pildid";
+            kuva.Location = new Point(260, 435);
             kuva.Size = new Size(100, 35);
             kuva.Click += Kuva_Click;
 
             eelmine = new Button();
             eelmine.Text = "<";
-            eelmine.Location = new Point(260, 435);
+            eelmine.Location = new Point(370, 435);
             eelmine.Size = new Size(45, 35);
             eelmine.Click += Eelmine_Click;
 
             jargmine = new Button();
             jargmine.Text = ">";
-            jargmine.Location = new Point(315, 435);
+            jargmine.Location = new Point(425, 435);
             jargmine.Size = new Size(45, 35);
             jargmine.Click += Jargmine_Click;
 
             lemmikudNupp = new Button();
             lemmikudNupp.Text = "Lemmikud";
-            lemmikudNupp.Location = new Point(370, 435);
+            lemmikudNupp.Location = new Point(480, 435);
             lemmikudNupp.Size = new Size(90, 35);
             lemmikudNupp.Click += Lemmikud_Click;
 
             puhasta = new Button();
-            puhasta.Text = "Puhasta";
-            puhasta.Location = new Point(470, 435);
-            puhasta.Size = new Size(90, 35);
+            puhasta.Text = "Eemalda albumist";
+            puhasta.Location = new Point(580, 435);
+            puhasta.Size = new Size(140, 35);
             puhasta.Click += Puhasta_Click;
 
             sulge = new Button();
             sulge.Text = "Sulge";
-            sulge.Location = new Point(570, 435);
+            sulge.Location = new Point(730, 435);
             sulge.Size = new Size(90, 35);
             sulge.Click += Sulge_Click;
+
+            moveToAlbum = new Button();
+            moveToAlbum.Text = "Teise albumisse";
+            moveToAlbum.Location = new Point(830, 435);
+            moveToAlbum.Size = new Size(130, 35);
+            moveToAlbum.Click += MoveToAlbum_Click;
 
             Controls.Add(pildiAla);
             Controls.Add(info);
@@ -118,8 +134,41 @@ namespace KolmRakendust
             Controls.Add(lemmikudNupp);
             Controls.Add(puhasta);
             Controls.Add(sulge);
+            Controls.Add(moveToAlbum);
 
-            // Drag & Drop
+            // Vasakul on albumite puu ja selle all albumite nupud.
+            albumTree = new TreeView();
+            albumTree.Location = new Point(20, 20);
+            albumTree.Size = new Size(220, 340);
+            albumTree.HideSelection = false;
+            albumTree.AfterSelect += AlbumTree_AfterSelect;
+            albumTree.AllowDrop = true;
+            albumTree.DragEnter += Pilt_DragEnter;
+            albumTree.DragDrop += AlbumTree_DragDrop;
+            Controls.Add(albumTree);
+
+            uusAlbum = new Button();
+            uusAlbum.Text = "Uus album";
+            uusAlbum.Location = new Point(20, 370);
+            uusAlbum.Size = new Size(105, 30);
+
+            nimetaAlbum = new Button();
+            nimetaAlbum.Text = "Nimeta ümber";
+            nimetaAlbum.Location = new Point(130, 370);
+            nimetaAlbum.Size = new Size(110, 30);
+
+            kustutaAlbum = new Button();
+            kustutaAlbum.Text = "Kustuta album";
+            kustutaAlbum.Location = new Point(20, 405);
+            kustutaAlbum.Size = new Size(220, 30);
+            uusAlbum.Click += (s, e) => CreateAlbum();
+            nimetaAlbum.Click += (s, e) => RenameAlbum();
+            kustutaAlbum.Click += (s, e) => DeleteAlbum();
+            Controls.Add(uusAlbum);
+            Controls.Add(nimetaAlbum);
+            Controls.Add(kustutaAlbum);
+
+            // Pildifaile saab ka aknasse hiirega lohistada.
             AllowDrop = true;
             pildiAla.AllowDrop = true;
             pilt.AllowDrop = true;
@@ -133,13 +182,15 @@ namespace KolmRakendust
             pilt.DragEnter += Pilt_DragEnter;
             pilt.DragDrop += Pilt_DragDrop;
 
-            // Zoom hiirerattaga
+            // Hiireratas muudab pildi suurust.
             MouseWheel += Pilt_MouseWheel;
 
             pilt.MouseEnter += Pilt_MouseEnter;
             pildiAla.MouseEnter += Pilt_MouseEnter;
 
-            LoeLemmikud();
+            // Avamisel loeme varem salvestatud albumid sisse.
+            LoadLibrary();
+            RefreshTree(null);
         }
 
         private void Kuva_Click(object sender, EventArgs e)
@@ -150,23 +201,383 @@ namespace KolmRakendust
             aken.Multiselect = true;
 
             if (aken.ShowDialog() == DialogResult.OK)
+                ImportPhotos(aken.FileNames, activeAlbum);
+        }
+
+        private string LibraryFile { get { return Path.Combine(libraryDirectory, "library.xml"); } }
+
+        private void LoadLibrary()
+        {
+            // Kui XML-fail on olemas, loeme sellest albumid ja piltide asukohad.
+            try
             {
-                koikPildid.Clear();
-                pildid.Clear();
+                if (File.Exists(LibraryFile))
+                {
+                    using (FileStream stream = File.OpenRead(LibraryFile))
+                    {
+                        library = (PhotoLibrary)new XmlSerializer(typeof(PhotoLibrary)).Deserialize(stream);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Fototeeki ei saanud avada: " + ex.Message, "Viga");
+            }
+            // Esimesel käivitamisel ei ole veel midagi salvestatud.
+            if (library == null)
+                library = new PhotoLibrary();
+            if (library.Albums == null)
+                library.Albums = new List<PhotoAlbum>();
+            if (library.Favorites == null)
+                library.Favorites = new List<string>();
+            foreach (PhotoAlbum album in library.Albums)
+                if (album.Photos == null)
+                    album.Photos = new List<string>();
+            foreach (string hash in library.Favorites)
+                if (!string.IsNullOrWhiteSpace(hash))
+                    lemmikud.Add(hash.Trim());
 
-                koikPildid.AddRange(aken.FileNames);
-                pildid.AddRange(aken.FileNames);
+            // Vana versiooni lemmikud lisame uude fototeeki.
+            if (!File.Exists(LibraryFile)) LoeLemmikud();
+            if (library.Albums.Count == 0)
+            {
+                library.Albums.Add(new PhotoAlbum { Name = "Minu pildid" });
+                SaveLibrary();
+            }
+        }
 
+        private void SaveLibrary()
+        {
+            // Kõigepealt kirjutame ajutisse faili. Nii ei kao vana fail poole kirjutamise pealt.
+            string temporary = LibraryFile + ".tmp";
+            try
+            {
+                Directory.CreateDirectory(libraryDirectory);
+                library.Favorites = new List<string>(lemmikud);
+                using (FileStream stream = File.Create(temporary))
+                {
+                    new XmlSerializer(typeof(PhotoLibrary)).Serialize(stream, library);
+                }
+                if (File.Exists(LibraryFile))
+                    File.Replace(temporary, LibraryFile, null);
+                else
+                    File.Move(temporary, LibraryFile);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Fototeeki ei saanud salvestada: " + ex.Message, "Viga");
+            }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(temporary))
+                        File.Delete(temporary);
+                }
+                catch (IOException) { }
+            }
+        }
+
+        private void RefreshTree(PhotoAlbum selected)
+        {
+            // Ehitame vasakpoolse albumite puu uuesti üles.
+            updatingTree = true;
+            albumTree.BeginUpdate();
+            albumTree.Nodes.Clear();
+            albumTree.Nodes.Add(new TreeNode("Kõik pildid") { Tag = "all" });
+            albumTree.Nodes.Add(new TreeNode("Lemmikud") { Tag = "favorites" });
+            TreeNode albums = new TreeNode("Albumid");
+            foreach (PhotoAlbum album in library.Albums)
+                albums.Nodes.Add(new TreeNode(album.Name) { Tag = album });
+            albumTree.Nodes.Add(albums);
+            albums.Expand();
+            albumTree.SelectedNode = albumTree.Nodes[0];
+            if (selected != null)
+            {
+                foreach (TreeNode node in albums.Nodes)
+                {
+                    if (node.Tag == selected)
+                        albumTree.SelectedNode = node;
+                }
+            }
+            albumTree.EndUpdate();
+            updatingTree = false;
+            SelectNode(albumTree.SelectedNode);
+        }
+
+        private void AlbumTree_AfterSelect(object sender, TreeViewEventArgs e)
+        {
+            if (!updatingTree) SelectNode(e.Node);
+        }
+
+        private void SelectNode(TreeNode node)
+        {
+            if (node == null || node.Tag == null) return;
+            activeAlbum = node.Tag as PhotoAlbum;
+            koikPildid.Clear();
+
+            // Albumi puhul näitame selle pilte. Üldvaates kogume pildid kõigist albumitest.
+            if (activeAlbum != null)
+            {
+                foreach (string path in activeAlbum.Photos)
+                    if (!string.IsNullOrWhiteSpace(path)) koikPildid.Add(path);
+            }
+            else
+            {
+                foreach (PhotoAlbum album in library.Albums)
+                {
+                    if (album.Photos == null) continue;
+                    foreach (string path in album.Photos)
+                    {
+                        if (string.IsNullOrWhiteSpace(path))
+                            continue;
+                        bool alreadyAdded = false;
+                        foreach (string existing in koikPildid)
+                            if (string.Equals(existing, path, StringComparison.OrdinalIgnoreCase))
+                                alreadyAdded = true;
+                        if (!alreadyAdded)
+                            koikPildid.Add(path);
+                    }
+                }
+            }
+            pildid.Clear();
+            pildid.AddRange(koikPildid);
+            ainultLemmikud = (node.Tag as string) == "favorites";
+            if (ainultLemmikud)
+                FilterFavorites();
+            lemmikudNupp.Text = ainultLemmikud ? "Kõik pildid" : "Lemmikud";
+            praegunePilt = 0;
+            if (pildid.Count == 0) TuhjendaPilt();
+            else KuvaPilt();
+            puhasta.Enabled = activeAlbum != null && pildid.Count > 0;
+            moveToAlbum.Enabled = activeAlbum != null && pildid.Count > 0 && library.Albums.Count > 1;
+            nimetaAlbum.Enabled = kustutaAlbum.Enabled = activeAlbum != null;
+        }
+
+        private void FilterFavorites()
+        {
+            // Lemmikute vaates jätame alles ainult lemmikuks märgitud pildid.
+            pildid.Clear();
+            foreach (string path in koikPildid)
+            {
+                try
+                {
+                    if (lemmikud.Contains(LeiaSHA256(path)))
+                        pildid.Add(path);
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+
+        private static string AskAlbumName(string title, string current)
+        {
+            // Väike aken, kus saab albumile nime kirjutada.
+            using (Form dialog = new Form())
+            {
+                dialog.Text = title;
+                dialog.ClientSize = new Size(350, 110);
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+
+                TextBox input = new TextBox();
+                input.Location = new Point(12, 12);
+                input.Size = new Size(326, 25);
+                input.Text = current;
+
+                Button ok = new Button();
+                ok.Text = "OK";
+                ok.Location = new Point(170, 55);
+                ok.Size = new Size(80, 30);
+                ok.DialogResult = DialogResult.OK;
+
+                Button cancel = new Button();
+                cancel.Text = "Loobu";
+                cancel.Location = new Point(258, 55);
+                cancel.Size = new Size(80, 30);
+                cancel.DialogResult = DialogResult.Cancel;
+                dialog.Controls.Add(input);
+                dialog.Controls.Add(ok);
+                dialog.Controls.Add(cancel);
+                dialog.AcceptButton = ok;
+                dialog.CancelButton = cancel;
+                if (dialog.ShowDialog() == DialogResult.OK)
+                    return input.Text.Trim();
+                return null;
+            }
+        }
+
+        private bool ValidAlbumName(string name, PhotoAlbum current = null)
+        {
+            if (name.Length > 0)
+            {
+                bool nameTaken = false;
+                foreach (PhotoAlbum album in library.Albums)
+                    if (album != current && string.Equals(album.Name, name,
+                        StringComparison.CurrentCultureIgnoreCase)) nameTaken = true;
+                if (!nameTaken) return true;
+            }
+            MessageBox.Show("Sisesta kordumatu albumi nimi.", "Album");
+            return false;
+        }
+
+        private void CreateAlbum()
+        {
+            // Lisame uue albumi nimekirja ja salvestame muudatuse.
+            string name = AskAlbumName("Uus album", "");
+            if (name == null || !ValidAlbumName(name)) return;
+            PhotoAlbum album = new PhotoAlbum { Name = name };
+            library.Albums.Add(album);
+            SaveLibrary();
+            RefreshTree(album);
+        }
+
+        private void RenameAlbum()
+        {
+            if (activeAlbum == null) return;
+            string name = AskAlbumName("Nimeta album ümber", activeAlbum.Name);
+            if (name == null || !ValidAlbumName(name, activeAlbum)) return;
+            activeAlbum.Name = name;
+            SaveLibrary();
+            RefreshTree(activeAlbum);
+        }
+
+        private void DeleteAlbum()
+        {
+            // Kustutame ainult albumi nimekirjast, mitte arvutis olevaid pildifaile.
+            if (activeAlbum == null) return;
+            if (MessageBox.Show("Kustuta album \"" + activeAlbum.Name + "\"? Pildifaile ei kustutata.",
+                "Kustuta album", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+            library.Albums.Remove(activeAlbum);
+            if (library.Albums.Count == 0)
+                library.Albums.Add(new PhotoAlbum { Name = "Minu pildid" });
+            SaveLibrary();
+            RefreshTree(null);
+        }
+
+        private void ImportPhotos(IEnumerable<string> paths, PhotoAlbum album)
+        {
+            // Kui albumit pole valitud, lähevad pildid esimesse albumisse.
+            if (album == null) album = library.Albums[0];
+            List<string> files = new List<string>();
+            foreach (string path in paths)
+                if (File.Exists(path) && KasPildifail(path)) files.Add(path);
+            if (files.Count == 0)
+            {
+                MessageBox.Show("Sobivaid pildifaile ei leitud.", "Info");
+                return;
+            }
+            // Kasutaja valib, kas teha pildist koopia või jätta see algsesse kausta.
+            DialogResult mode = MessageBox.Show(
+                "Kas kopeerida pildid rakenduse fototeeki?\n\nJah: pildid säilivad ka siis, kui originaalid teisaldatakse.\nEi: kasutatakse algsete failide asukohti.",
+                "Piltide lisamine", MessageBoxButtons.YesNoCancel);
+            if (mode == DialogResult.Cancel) return;
+            int failed = 0;
+            string first = null;
+            foreach (string path in files)
+            {
+                try
+                {
+                    bool alreadyAdded = false;
+                    foreach (string existing in album.Photos)
+                        if (string.Equals(existing, path, StringComparison.OrdinalIgnoreCase)) alreadyAdded = true;
+                    if (mode == DialogResult.No && alreadyAdded)
+                        continue;
+                    string saved = path;
+                    if (mode == DialogResult.Yes)
+                    {
+                        string directory = Path.Combine(libraryDirectory, "Files");
+                        Directory.CreateDirectory(directory);
+                        saved = Path.Combine(directory, Guid.NewGuid().ToString("N") +
+                            Path.GetExtension(path).ToLowerInvariant());
+                        File.Copy(path, saved);
+                    }
+                    album.Photos.Add(saved);
+                    if (first == null) first = saved;
+                }
+                catch (IOException)
+                {
+                    failed++;
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    failed++;
+                }
+            }
+            if (first != null)
+            {
+                SaveLibrary();
+                RefreshTree(album);
                 praegunePilt = 0;
-                ainultLemmikud = false;
-                lemmikudNupp.Text = "Lemmikud";
-
+                for (int i = 0; i < pildid.Count; i++)
+                    if (string.Equals(pildid[i], first, StringComparison.OrdinalIgnoreCase)) praegunePilt = i;
                 KuvaPilt();
+            }
+            if (failed > 0) MessageBox.Show(failed + " faili ei saanud lisada.", "Piltide lisamine");
+        }
+
+        private void AlbumTree_DragDrop(object sender, DragEventArgs e)
+        {
+            string[] files = e.Data.GetData(DataFormats.FileDrop) as string[];
+            if (files == null) return;
+            TreeNode target = albumTree.GetNodeAt(albumTree.PointToClient(new Point(e.X, e.Y)));
+            ImportPhotos(files, target == null ? null : target.Tag as PhotoAlbum);
+        }
+
+        private void MoveToAlbum_Click(object sender, EventArgs e)
+        {
+            // Valime teise albumi ja tõstame käesoleva pildi sinna.
+            if (activeAlbum == null || pildid.Count == 0) return;
+            PhotoAlbum source = activeAlbum;
+            string path = pildid[praegunePilt];
+            using (Form dialog = new Form())
+            {
+                dialog.Text = "Vali album";
+                dialog.ClientSize = new Size(300, 110);
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                ComboBox albums = new ComboBox();
+                albums.Location = new Point(12, 12);
+                albums.Width = 276;
+                albums.DropDownStyle = ComboBoxStyle.DropDownList;
+                foreach (PhotoAlbum album in library.Albums)
+                    if (album != source) albums.Items.Add(album.Name);
+                albums.SelectedIndex = 0;
+                Button ok = new Button();
+                ok.Text = "OK";
+                ok.Location = new Point(120, 55);
+                ok.DialogResult = DialogResult.OK;
+
+                Button cancel = new Button();
+                cancel.Text = "Loobu";
+                cancel.Location = new Point(205, 55);
+                cancel.DialogResult = DialogResult.Cancel;
+                dialog.Controls.Add(albums);
+                dialog.Controls.Add(ok);
+                dialog.Controls.Add(cancel);
+                dialog.AcceptButton = ok;
+                dialog.CancelButton = cancel;
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+                foreach (PhotoAlbum album in library.Albums)
+                {
+                    if (album.Name != (string)albums.SelectedItem) continue;
+                    bool alreadyThere = false;
+                    foreach (string existing in album.Photos)
+                        if (string.Equals(existing, path, StringComparison.OrdinalIgnoreCase)) alreadyThere = true;
+                    if (!alreadyThere)
+                        album.Photos.Add(path);
+                    source.Photos.Remove(path);
+                    SaveLibrary();
+                    SelectNode(albumTree.SelectedNode);
+                    return;
+                }
             }
         }
 
         private void KuvaPilt()
         {
+            // Avame faili ja näitame seda PictureBoxis.
             if (pildid.Count == 0)
                 return;
 
@@ -182,11 +593,12 @@ namespace KolmRakendust
 
                 zoom = 1.0f;
 
-                pilt.Size = new Size(660, 360);
+                pilt.Size = new Size(700, 360);
                 pilt.Location = new Point(0, 0);
 
                 pildiAla.AutoScrollPosition = new Point(0, 0);
 
+                // Räsi järgi saame aru, kas see pilt on lemmik.
                 praeguneHash = LeiaSHA256(pildid[praegunePilt]);
 
                 lemmikuUuendamine = true;
@@ -198,7 +610,11 @@ namespace KolmRakendust
             catch
             {
                 pilt.Image = null;
-                MessageBox.Show("Seda faili ei saa pildina avada.", "Viga");
+                praeguneHash = "";
+                lemmikuUuendamine = true;
+                lemmik.Checked = false;
+                lemmikuUuendamine = false;
+                info.Text = "Pilti ei saa avada või faili ei leitud: " + pildid[praegunePilt];
             }
         }
 
@@ -238,6 +654,7 @@ namespace KolmRakendust
 
         private void Lemmik_CheckedChanged(object sender, EventArgs e)
         {
+            // Märkeruudu muutmisel lisame või eemaldame pildi lemmikutest.
             if (lemmikuUuendamine)
                 return;
 
@@ -252,7 +669,7 @@ namespace KolmRakendust
             else
                 lemmikud.Remove(praeguneHash);
 
-            SalvestaLemmikud();
+            SaveLibrary();
 
             if (ainultLemmikud && !lemmik.Checked)
             {
@@ -273,54 +690,12 @@ namespace KolmRakendust
 
         private void Lemmikud_Click(object sender, EventArgs e)
         {
-            if (koikPildid.Count == 0)
-                return;
-
-            if (!ainultLemmikud)
-            {
-                List<string> lemmikPildid = new List<string>();
-
-                foreach (string fail in koikPildid)
-                {
-                    try
-                    {
-                        string hash = LeiaSHA256(fail);
-
-                        if (lemmikud.Contains(hash))
-                            lemmikPildid.Add(fail);
-                    }
-                    catch
-                    {
-                    }
-                }
-
-                if (lemmikPildid.Count == 0)
-                {
-                    MessageBox.Show("Lemmikpilte ei ole.", "Info");
-                    return;
-                }
-
-                pildid.Clear();
-                pildid.AddRange(lemmikPildid);
-
-                ainultLemmikud = true;
-                lemmikudNupp.Text = "K�ik pildid";
-            }
-            else
-            {
-                pildid.Clear();
-                pildid.AddRange(koikPildid);
-
-                ainultLemmikud = false;
-                lemmikudNupp.Text = "Lemmikud";
-            }
-
-            praegunePilt = 0;
-            KuvaPilt();
+            albumTree.SelectedNode = ainultLemmikud ? albumTree.Nodes[0] : albumTree.Nodes[1];
         }
 
         private string LeiaSHA256(string fail)
         {
+            // Samal pildil on sama räsi ka siis, kui failinimi muutub.
             using (SHA256 sha256 = SHA256.Create())
             using (FileStream stream = File.OpenRead(fail))
             {
@@ -336,26 +711,14 @@ namespace KolmRakendust
         {
             if (!File.Exists(lemmikuteFail))
                 return;
-
-            string[] read = File.ReadAllLines(lemmikuteFail);
-
-            foreach (string rida in read)
-            {
-                if (rida.Trim() != "")
-                    lemmikud.Add(rida.Trim());
-            }
-        }
-
-        private void SalvestaLemmikud()
-        {
             try
             {
-                File.WriteAllLines(lemmikuteFail, lemmikud);
+                string[] read = File.ReadAllLines(lemmikuteFail);
+                foreach (string rida in read)
+                    if (rida.Trim() != "") lemmikud.Add(rida.Trim());
             }
-            catch
-            {
-                MessageBox.Show("Lemmikuid ei saanud salvestada.", "Viga");
-            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
 
         private void Pilt_DragEnter(object sender, DragEventArgs e)
@@ -366,32 +729,10 @@ namespace KolmRakendust
 
         private void Pilt_DragDrop(object sender, DragEventArgs e)
         {
-            string[] failid = (string[])e.Data.GetData(DataFormats.FileDrop);
-
-            koikPildid.Clear();
-            pildid.Clear();
-
-            foreach (string fail in failid)
-            {
-                if (File.Exists(fail) && KasPildifail(fail))
-                {
-                    koikPildid.Add(fail);
-                    pildid.Add(fail);
-                }
-            }
-
-            if (pildid.Count == 0)
-            {
-                MessageBox.Show("Sobivaid pildifaile ei leitud.", "Viga");
-                return;
-            }
-
-            ainultLemmikud = false;
-            lemmikudNupp.Text = "Lemmikud";
-
-            praegunePilt = 0;
-
-            KuvaPilt();
+            // Lohistatud failid lisame valitud albumisse.
+            string[] failid = e.Data.GetData(DataFormats.FileDrop) as string[];
+            if (failid != null)
+                ImportPhotos(failid, activeAlbum);
         }
 
         private bool KasPildifail(string fail)
@@ -413,6 +754,7 @@ namespace KolmRakendust
 
         private void Pilt_MouseWheel(object sender, MouseEventArgs e)
         {
+            // Hiirerattaga saab pilti suurendada või vähendada.
             if (pilt.Image == null)
                 return;
 
@@ -433,7 +775,7 @@ namespace KolmRakendust
                 zoom = 3.0f;
 
             pilt.Size = new Size(
-                (int)(660 * zoom),
+                (int)(700 * zoom),
                 (int)(360 * zoom)
             );
 
@@ -501,20 +843,11 @@ namespace KolmRakendust
 
         private void Puhasta_Click(object sender, EventArgs e)
         {
-            TuhjendaPilt();
-
-            pildid.Clear();
-            koikPildid.Clear();
-
-            praegunePilt = 0;
-            ainultLemmikud = false;
-
-            lemmikudNupp.Text = "Lemmikud";
-
-            zoom = 1.0f;
-
-            pilt.Size = new Size(660, 360);
-            pilt.Location = new Point(0, 0);
+            // Eemaldame pildi albumist, kuid faili arvutist ei kustuta.
+            if (activeAlbum == null || pildid.Count == 0) return;
+            activeAlbum.Photos.Remove(pildid[praegunePilt]);
+            SaveLibrary();
+            SelectNode(albumTree.SelectedNode);
         }
 
         private void Sulge_Click(object sender, EventArgs e)
