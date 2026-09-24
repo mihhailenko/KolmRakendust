@@ -14,8 +14,8 @@ namespace KolmRakendust
         Panel pildiAla;
 
         CheckBox venita, lemmik;
-        Button kuva, eelmine, jargmine, lemmikudNupp, puhasta, sulge, moveToAlbum;
-        Label info;
+        Button kuva, eelmine, jargmine, puhasta, moveToAlbum;
+        Label info, pildiLoendur;
         TreeView albumTree;
         Button uusAlbum, nimetaAlbum, kustutaAlbum;
         PhotoLibrary library;
@@ -72,55 +72,49 @@ namespace KolmRakendust
 
             venita = new CheckBox();
             venita.Text = "Venita pilt";
-            venita.Location = new Point(260, 410);
+            venita.Location = new Point(555, 443);
             venita.AutoSize = true;
             venita.CheckedChanged += Venita_CheckedChanged;
 
             lemmik = new CheckBox();
             lemmik.Text = "Lemmik";
-            lemmik.Location = new Point(360, 410);
+            lemmik.Location = new Point(455, 443);
             lemmik.AutoSize = true;
             lemmik.CheckedChanged += Lemmik_CheckedChanged;
 
             kuva = new Button();
             kuva.Text = "Lisa pildid";
-            kuva.Location = new Point(260, 435);
-            kuva.Size = new Size(100, 35);
+            kuva.Location = new Point(20, 440);
+            kuva.Size = new Size(220, 35);
             kuva.Click += Kuva_Click;
 
             eelmine = new Button();
             eelmine.Text = "<";
-            eelmine.Location = new Point(370, 435);
+            eelmine.Location = new Point(260, 435);
             eelmine.Size = new Size(45, 35);
             eelmine.Click += Eelmine_Click;
 
+            pildiLoendur = new Label();
+            pildiLoendur.Text = "0 / 0";
+            pildiLoendur.Location = new Point(310, 435);
+            pildiLoendur.Size = new Size(75, 35);
+            pildiLoendur.TextAlign = ContentAlignment.MiddleCenter;
+
             jargmine = new Button();
             jargmine.Text = ">";
-            jargmine.Location = new Point(425, 435);
+            jargmine.Location = new Point(390, 435);
             jargmine.Size = new Size(45, 35);
             jargmine.Click += Jargmine_Click;
 
-            lemmikudNupp = new Button();
-            lemmikudNupp.Text = "Lemmikud";
-            lemmikudNupp.Location = new Point(480, 435);
-            lemmikudNupp.Size = new Size(90, 35);
-            lemmikudNupp.Click += Lemmikud_Click;
-
             puhasta = new Button();
             puhasta.Text = "Eemalda albumist";
-            puhasta.Location = new Point(580, 435);
+            puhasta.Location = new Point(820, 435);
             puhasta.Size = new Size(140, 35);
             puhasta.Click += Puhasta_Click;
 
-            sulge = new Button();
-            sulge.Text = "Sulge";
-            sulge.Location = new Point(730, 435);
-            sulge.Size = new Size(90, 35);
-            sulge.Click += Sulge_Click;
-
             moveToAlbum = new Button();
             moveToAlbum.Text = "Teise albumisse";
-            moveToAlbum.Location = new Point(830, 435);
+            moveToAlbum.Location = new Point(675, 435);
             moveToAlbum.Size = new Size(130, 35);
             moveToAlbum.Click += MoveToAlbum_Click;
 
@@ -130,10 +124,9 @@ namespace KolmRakendust
             Controls.Add(lemmik);
             Controls.Add(kuva);
             Controls.Add(eelmine);
+            Controls.Add(pildiLoendur);
             Controls.Add(jargmine);
-            Controls.Add(lemmikudNupp);
             Controls.Add(puhasta);
-            Controls.Add(sulge);
             Controls.Add(moveToAlbum);
 
             // Vasakul on albumite puu ja selle all albumite nupud.
@@ -345,7 +338,6 @@ namespace KolmRakendust
             ainultLemmikud = (node.Tag as string) == "favorites";
             if (ainultLemmikud)
                 FilterFavorites();
-            lemmikudNupp.Text = ainultLemmikud ? "Kõik pildid" : "Lemmikud";
             praegunePilt = 0;
             if (pildid.Count == 0) TuhjendaPilt();
             else KuvaPilt();
@@ -581,6 +573,8 @@ namespace KolmRakendust
             if (pildid.Count == 0)
                 return;
 
+            pildiLoendur.Text = (praegunePilt + 1) + " / " + pildid.Count;
+
             try
             {
                 if (pilt.Image != null)
@@ -686,11 +680,6 @@ namespace KolmRakendust
 
                 KuvaPilt();
             }
-        }
-
-        private void Lemmikud_Click(object sender, EventArgs e)
-        {
-            albumTree.SelectedNode = ainultLemmikud ? albumTree.Nodes[0] : albumTree.Nodes[1];
         }
 
         private string LeiaSHA256(string fail)
@@ -818,8 +807,7 @@ namespace KolmRakendust
             }
 
             info.Text =
-                (praegunePilt + 1) + " / " + pildid.Count +
-                " | " + Path.GetFileName(pildid[praegunePilt]) +
+                Path.GetFileName(pildid[praegunePilt]) +
                 " | " + pilt.Image.Width + " x " + pilt.Image.Height +
                 " | " + failiSuurus +
                 " | " + (int)(zoom * 100) + "%";
@@ -834,6 +822,7 @@ namespace KolmRakendust
             }
 
             info.Text = "";
+            pildiLoendur.Text = "0 / 0";
             praeguneHash = "";
 
             lemmikuUuendamine = true;
@@ -848,11 +837,6 @@ namespace KolmRakendust
             activeAlbum.Photos.Remove(pildid[praegunePilt]);
             SaveLibrary();
             SelectNode(albumTree.SelectedNode);
-        }
-
-        private void Sulge_Click(object sender, EventArgs e)
-        {
-            Close();
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e) 
