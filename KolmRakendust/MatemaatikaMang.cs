@@ -8,7 +8,7 @@ namespace KolmRakendust
     {
         // Iga massiivi koht vastab ühele ülesandereale.
         Random random = new Random();
-        Label aeg;
+        Label aeg, tulemuseSilt;
         Label[] vasakud = new Label[4];
         Label[] tehted = new Label[4];
         Label[] paremad = new Label[4];
@@ -25,125 +25,150 @@ namespace KolmRakendust
 
         public MatemaatikaMang()
         {
-            // Mängu akna suurus ja pealkiri.
             Text = "Matemaatiline äraarvamismäng";
-            ClientSize = new Size(610, 485);
+            ClientSize = new Size(630, 600);
             StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.Fixed3D;
+            FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
+            UiTheme.Form(this);
+
+            Label pealkiri = new Label();
+            pealkiri.Text = "Arvuta kiiresti";
+            pealkiri.Font = new Font("Segoe UI", 20, FontStyle.Bold);
+            pealkiri.Location = new Point(26, 19);
+            pealkiri.Size = new Size(330, 38);
+            Controls.Add(pealkiri);
+            Label juhis = new Label();
+            juhis.Text = "Leia neli puuduvat arvu 30 sekundiga";
+            juhis.ForeColor = UiTheme.Muted;
+            juhis.Location = new Point(28, 59);
+            juhis.Size = new Size(370, 28);
+            Controls.Add(juhis);
 
             Label ajaPealkiri = new Label();
-            ajaPealkiri.Text = "Aega alles";
-            ajaPealkiri.Font = new Font("Arial", 15.75f);
-            ajaPealkiri.Location = new Point(155, 15);
-            ajaPealkiri.AutoSize = true;
-
+            ajaPealkiri.Text = "AEGA ALLES";
+            ajaPealkiri.ForeColor = UiTheme.Muted;
+            ajaPealkiri.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            ajaPealkiri.Location = new Point(443, 23);
+            ajaPealkiri.Size = new Size(150, 22);
+            Controls.Add(ajaPealkiri);
             aeg = new Label();
-            aeg.Font = new Font("Arial", 15.75f);
-            aeg.Location = new Point(270, 10);
-            aeg.Size = new Size(200, 30);
-            aeg.BorderStyle = BorderStyle.FixedSingle;
+            aeg.Text = "30 sekundit";
+            aeg.Font = new Font("Segoe UI", 13, FontStyle.Bold);
+            aeg.Location = new Point(442, 47);
+            aeg.Size = new Size(158, 32);
             aeg.TextAlign = ContentAlignment.MiddleLeft;
+            Controls.Add(aeg);
 
-            // Loome neli rida. Igas reas on kaks arvu, tehtemärk ja vastuse koht.
             for (int i = 0; i < 4; i++)
             {
-                int y = 60 + i * 50;
-                vasakud[i] = LooSilt("?", 30, y, 85);
-                tehted[i] = LooSilt("+", 125, y, 45);
-                paremad[i] = LooSilt("?", 185, y, 85);
-                LooSilt("=", 280, y, 45);
-                tulemused[i] = LooSilt("?", 330, y, 85);
+                int y = 102 + i * 60;
+                Panel rida = new Panel();
+                rida.Location = new Point(18, y - 2);
+                rida.Size = new Size(594, 56);
+                rida.BackColor = UiTheme.Surface;
+                Controls.Add(rida);
+
+                // Kõik rea elemendid peavad olema rea paneeli sees.
+                // Muidu katab paneel vormil asuvaid arve.
+                vasakud[i] = LooSilt(rida, "?", 22, 2, 80);
+                tehted[i] = LooSilt(rida, "+", 115, 2, 35);
+                paremad[i] = LooSilt(rida, "?", 167, 2, 80);
+                LooSilt(rida, "=", 262, 2, 45);
+                tulemused[i] = LooSilt(rida, "?", 322, 2, 80);
 
                 vastused[i] = new NumericUpDown();
-                vastused[i].Font = new Font("Arial", 18);
-                vastused[i].Location = new Point(330, y + 10);
-                vastused[i].Size = new Size(85, 35);
+                vastused[i].Font = new Font("Segoe UI", 17);
+                vastused[i].ForeColor = UiTheme.Text;
+                vastused[i].Location = new Point(322, 10);
+                vastused[i].Size = new Size(80, 35);
                 vastused[i].Maximum = 100;
                 vastused[i].TabIndex = i + 1;
                 vastused[i].Enabled = false;
                 vastused[i].Enter += Vastus_Enter;
                 vastused[i].KeyDown += Vastus_KeyDown;
-                vastused[i].ValueChanged += Vastus_ValueChanged;
-                Controls.Add(vastused[i]);
+                rida.Controls.Add(vastused[i]);
 
-                tagasiside[i] = LooSilt("", 425, y, 180);
-                tagasiside[i].Font = new Font("Arial", 12);
+                tagasiside[i] = LooSilt(rida, "", 412, 2, 170);
+                tagasiside[i].Font = new Font("Segoe UI", 9.5f);
                 tagasiside[i].TextAlign = ContentAlignment.MiddleLeft;
             }
 
             Label valikuPealkiri = new Label();
-            valikuPealkiri.Text = "Harjuta tehteid:";
-            valikuPealkiri.Location = new Point(50, 275);
+            valikuPealkiri.Text = "HARJUTA TEHTEID";
+            valikuPealkiri.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            valikuPealkiri.ForeColor = UiTheme.Muted;
+            valikuPealkiri.Location = new Point(38, 358);
             valikuPealkiri.AutoSize = true;
             Controls.Add(valikuPealkiri);
-
-            // Siit saab valida, milliseid tehteid järgmises voorus harjutada.
             string[] nimed = { "Liitmine", "Lahutamine", "Korrutamine", "Jagamine" };
             for (int i = 0; i < 4; i++)
             {
                 valikud[i] = new CheckBox();
                 valikud[i].Text = nimed[i];
                 valikud[i].Checked = true;
-                valikud[i].Location = new Point(50, 300 + i * 28);
-                valikud[i].Size = new Size(130, 25);
+                valikud[i].Location = new Point(38, 382 + i * 27);
+                valikud[i].Size = new Size(180, 25);
                 Controls.Add(valikud[i]);
             }
 
             Label kohaPealkiri = new Label();
-            kohaPealkiri.Text = "Milline arv võib puuduma:";
-            kohaPealkiri.Location = new Point(310, 275);
+            kohaPealkiri.Text = "PUUDUV ARV";
+            kohaPealkiri.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            kohaPealkiri.ForeColor = UiTheme.Muted;
+            kohaPealkiri.Location = new Point(328, 358);
             kohaPealkiri.AutoSize = true;
             Controls.Add(kohaPealkiri);
-
-            // Vaikimisi tuleb leida tehte vastus ehk kolmas arv.
             string[] kohad = { "1. arv", "2. arv", "3. arv (vastus)" };
             for (int i = 0; i < 3; i++)
             {
                 puuduvadKohad[i] = new CheckBox();
                 puuduvadKohad[i].Text = kohad[i];
                 puuduvadKohad[i].Checked = i == 2;
-                puuduvadKohad[i].Location = new Point(310, 300 + i * 28);
-                puuduvadKohad[i].Size = new Size(160, 25);
+                puuduvadKohad[i].Location = new Point(328, 382 + i * 27);
+                puuduvadKohad[i].Size = new Size(180, 25);
                 Controls.Add(puuduvadKohad[i]);
             }
 
             alusta = new Button();
             alusta.Text = "Alusta mängu";
-            alusta.Font = new Font("Arial", 14);
-            alusta.Location = new Point(170, 435);
-            alusta.Size = new Size(130, 35);
+            alusta.Location = new Point(160, 506);
+            alusta.Size = new Size(145, 40);
             alusta.TabIndex = 0;
+            UiTheme.Button(alusta, true);
             alusta.Click += Alusta_Click;
-
             tyhjenda = new Button();
             tyhjenda.Text = "Tühjenda vastused";
-            tyhjenda.Font = new Font("Arial", 11);
-            tyhjenda.Location = new Point(320, 435);
-            tyhjenda.Size = new Size(170, 35);
+            tyhjenda.Location = new Point(319, 506);
+            tyhjenda.Size = new Size(168, 40);
             tyhjenda.Enabled = false;
+            UiTheme.Button(tyhjenda);
             tyhjenda.Click += Tyhjenda_Click;
+            Controls.Add(alusta);
+            Controls.Add(tyhjenda);
 
-            // Taimer hakkab käima alles siis, kui mängija esimest korda vastab.
+            tulemuseSilt = new Label();
+            tulemuseSilt.Location = new Point(30, 552);
+            tulemuseSilt.Size = new Size(570, 32);
+            tulemuseSilt.TextAlign = ContentAlignment.MiddleCenter;
+            tulemuseSilt.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+            Controls.Add(tulemuseSilt);
+
             taimer = new Timer();
             taimer.Interval = 1000;
             taimer.Tick += Taimer_Tick;
-
-            Controls.Add(ajaPealkiri);
-            Controls.Add(aeg);
-            Controls.Add(alusta);
-            Controls.Add(tyhjenda);
         }
 
-        private Label LooSilt(string tekst, int x, int y, int laius)
+        private Label LooSilt(Control parent, string tekst, int x, int y, int laius)
         {
             Label silt = new Label();
             silt.Text = tekst;
-            silt.Font = new Font("Arial", 18);
+            silt.Font = new Font("Segoe UI", 17);
+            silt.ForeColor = UiTheme.Text;
             silt.Location = new Point(x, y);
             silt.Size = new Size(laius, 50);
             silt.TextAlign = ContentAlignment.MiddleCenter;
-            Controls.Add(silt);
+            parent.Controls.Add(silt);
             return silt;
         }
 
@@ -228,13 +253,16 @@ namespace KolmRakendust
                     puuduvadKohad[i].Enabled = false;
             }
 
-            // Aeg hakkab vähenema alles esimese sisestuse juures.
+            // Loendus algab kohe, kui ülesanded ilmuvad ja vastuseväljad on aktiivsed.
             aegaAlles = 30;
             aeg.Text = "30 sekundit";
             alusta.Text = "Kontrolli";
             tyhjenda.Enabled = true;
             mangKaib = true;
+            tulemuseSilt.Text = "";
+            aeg.ForeColor = UiTheme.Text;
             vastused[0].Focus();
+            taimer.Start();
         }
 
         private void LooUlesanne(int rida, int tehe, int[] kohad, int kohtadeArv)
@@ -286,19 +314,19 @@ namespace KolmRakendust
             {
                 oigedVastused[rida] = esimene;
                 vasakud[rida].Text = "";
-                vastused[rida].Location = new Point(30, 70 + rida * 50);
+                vastused[rida].Location = new Point(22, 10);
             }
             else if (puuduvKoht == 1)
             {
                 oigedVastused[rida] = teine;
                 paremad[rida].Text = "";
-                vastused[rida].Location = new Point(185, 70 + rida * 50);
+                vastused[rida].Location = new Point(167, 10);
             }
             else
             {
                 oigedVastused[rida] = tulemus;
                 tulemused[rida].Text = "";
-                vastused[rida].Location = new Point(330, 70 + rida * 50);
+                vastused[rida].Location = new Point(322, 10);
             }
         }
 
@@ -307,6 +335,7 @@ namespace KolmRakendust
             // Võrdleme kõiki nelja vastust ja loeme õiged kokku.
             taimer.Stop();
             mangKaib = false;
+            alusta.Focus(); // Kinnitame ka viimati kirjutatud arvu enne kontrollimist.
             int oigeid = 0;
             for (int i = 0; i < 4; i++)
             {
@@ -314,13 +343,13 @@ namespace KolmRakendust
                 if (vastused[i].Value == oigedVastused[i])
                 {
                     oigeid++;
-                    vastused[i].BackColor = Color.LightGreen;
-                    tagasiside[i].ForeColor = Color.Green;
+                    vastused[i].BackColor = UiTheme.Green;
+                    tagasiside[i].ForeColor = Color.FromArgb(29, 122, 72);
                 }
                 else
                 {
-                    vastused[i].BackColor = Color.LightPink;
-                    tagasiside[i].ForeColor = Color.Red;
+                    vastused[i].BackColor = UiTheme.Red;
+                    tagasiside[i].ForeColor = Color.FromArgb(187, 62, 59);
                 }
                 vastused[i].Enabled = false;
                 valikud[i].Enabled = true;
@@ -328,13 +357,11 @@ namespace KolmRakendust
                     puuduvadKohad[i].Enabled = true;
             }
             alusta.Text = "Alusta mängu";
-            alusta.Focus();
 
-            // Vooru lõpus näeb mängija oma tulemust eraldi aknas.
-            if (oigeid == 4)
-                MessageBox.Show(this, "Väga tubli! Kõik 4 vastust on õiged. Palju õnne võidu puhul!", "Mängu tulemus");
-            else
-                MessageBox.Show(this, "Õigeid vastuseid: " + oigeid + "/4. Proovi veel kord!", "Mängu tulemus");
+            // Tulemus jääb aknasse nähtavale kuni järgmise vooruni.
+            tulemuseSilt.Text = (aegaAlles == 0 ? "Aeg on läbi!  " : "") +
+                "Õigeid vastuseid: " + oigeid + " / 4";
+            tulemuseSilt.ForeColor = oigeid == 4 ? Color.FromArgb(29, 122, 72) : UiTheme.Text;
         }
 
         private void Taimer_Tick(object sender, EventArgs e)
@@ -359,12 +386,6 @@ namespace KolmRakendust
 
         private void Vastus_KeyDown(object sender, KeyEventArgs e)
         {
-            // Esimene number või nooleklahv käivitab taimeri.
-            if ((e.KeyCode >= Keys.D0 && e.KeyCode <= Keys.D9) ||
-                (e.KeyCode >= Keys.NumPad0 && e.KeyCode <= Keys.NumPad9) ||
-                e.KeyCode == Keys.Up || e.KeyCode == Keys.Down)
-                AlustaTaimer();
-
             if (e.KeyCode != Keys.Enter)
                 return;
 
@@ -375,18 +396,6 @@ namespace KolmRakendust
                 vastused[rida + 1].Focus();
             else
                 KontrolliVastuseid();
-        }
-
-        private void Vastus_ValueChanged(object sender, EventArgs e)
-        {
-            // See käivitab taimeri ka siis, kui arvu muudetakse hiirega.
-            AlustaTaimer();
-        }
-
-        private void AlustaTaimer()
-        {
-            if (mangKaib && !taimer.Enabled)
-                taimer.Start();
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)

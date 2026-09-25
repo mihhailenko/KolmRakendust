@@ -12,6 +12,8 @@ namespace KolmRakendust
     {
         PictureBox pilt;
         Panel pildiAla;
+        FlowLayoutPanel miniaturid;
+        Label tyhiOlek, albumiPealkiri;
 
         CheckBox venita, lemmik;
         Button kuva, eelmine, jargmine, puhasta, moveToAlbum;
@@ -21,7 +23,6 @@ namespace KolmRakendust
         PhotoLibrary library;
         PhotoAlbum activeAlbum;
         bool updatingTree;
-        // Fototeegi fail asub kasutaja arvutis, mitte programmi kaustas.
         readonly string libraryDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "KolmRakendust", "PildiVaatamine");
@@ -45,143 +46,229 @@ namespace KolmRakendust
         public PildiVaatamine()
         {
             Text = "Pildi vaatamise programm";
-            ClientSize = new Size(1000, 500);
+            ClientSize = new Size(1080, 700);
+            MinimumSize = new Size(1050, 670);
             StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedSingle;
-            MaximizeBox = false;
+            UiTheme.Form(this);
 
-            pildiAla = new Panel();
-            pildiAla.Location = new Point(260, 20);
-            pildiAla.Size = new Size(700, 360);
-            pildiAla.AutoScroll = true;
+            TableLayoutPanel layout = new TableLayoutPanel();
+            layout.Dock = DockStyle.Fill;
+            layout.Padding = new Padding(18);
+            layout.ColumnCount = 2;
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            Controls.Add(layout);
 
-            pilt = new PictureBox();
-            pilt.Location = new Point(0, 0);
-            pilt.Size = new Size(700, 360);
-            pilt.BorderStyle = BorderStyle.FixedSingle;
-            pilt.SizeMode = PictureBoxSizeMode.Zoom;
+            TableLayoutPanel sidebar = new TableLayoutPanel();
+            sidebar.Dock = DockStyle.Fill;
+            sidebar.BackColor = UiTheme.Surface;
+            sidebar.Padding = new Padding(12);
+            sidebar.RowCount = 4;
+            sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
+            sidebar.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+            sidebar.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+            layout.Controls.Add(sidebar, 0, 0);
 
-            pildiAla.Controls.Add(pilt);
+            Label albumiSilt = new Label();
+            albumiSilt.Text = "Albumid";
+            albumiSilt.Font = new Font("Segoe UI", 14, FontStyle.Bold);
+            albumiSilt.Dock = DockStyle.Fill;
+            albumiSilt.TextAlign = ContentAlignment.MiddleLeft;
+            sidebar.Controls.Add(albumiSilt, 0, 0);
 
-            info = new Label();
-            info.Text = "";
-            info.Location = new Point(260, 385);
-            info.Size = new Size(700, 25);
-            info.TextAlign = ContentAlignment.MiddleCenter;
-            info.AutoEllipsis = true;
-
-            venita = new CheckBox();
-            venita.Text = "Venita pilt";
-            venita.Location = new Point(555, 443);
-            venita.AutoSize = true;
-            venita.CheckedChanged += Venita_CheckedChanged;
-
-            lemmik = new CheckBox();
-            lemmik.Text = "Lemmik";
-            lemmik.Location = new Point(455, 443);
-            lemmik.AutoSize = true;
-            lemmik.CheckedChanged += Lemmik_CheckedChanged;
-
-            kuva = new Button();
-            kuva.Text = "Lisa pildid";
-            kuva.Location = new Point(20, 440);
-            kuva.Size = new Size(220, 35);
-            kuva.Click += Kuva_Click;
-
-            eelmine = new Button();
-            eelmine.Text = "<";
-            eelmine.Location = new Point(260, 435);
-            eelmine.Size = new Size(45, 35);
-            eelmine.Click += Eelmine_Click;
-
-            pildiLoendur = new Label();
-            pildiLoendur.Text = "0 / 0";
-            pildiLoendur.Location = new Point(310, 435);
-            pildiLoendur.Size = new Size(75, 35);
-            pildiLoendur.TextAlign = ContentAlignment.MiddleCenter;
-
-            jargmine = new Button();
-            jargmine.Text = ">";
-            jargmine.Location = new Point(390, 435);
-            jargmine.Size = new Size(45, 35);
-            jargmine.Click += Jargmine_Click;
-
-            puhasta = new Button();
-            puhasta.Text = "Eemalda albumist";
-            puhasta.Location = new Point(820, 435);
-            puhasta.Size = new Size(140, 35);
-            puhasta.Click += Puhasta_Click;
-
-            moveToAlbum = new Button();
-            moveToAlbum.Text = "Teise albumisse";
-            moveToAlbum.Location = new Point(675, 435);
-            moveToAlbum.Size = new Size(130, 35);
-            moveToAlbum.Click += MoveToAlbum_Click;
-
-            Controls.Add(pildiAla);
-            Controls.Add(info);
-            Controls.Add(venita);
-            Controls.Add(lemmik);
-            Controls.Add(kuva);
-            Controls.Add(eelmine);
-            Controls.Add(pildiLoendur);
-            Controls.Add(jargmine);
-            Controls.Add(puhasta);
-            Controls.Add(moveToAlbum);
-
-            // Vasakul on albumite puu ja selle all albumite nupud.
             albumTree = new TreeView();
-            albumTree.Location = new Point(20, 20);
-            albumTree.Size = new Size(220, 340);
+            albumTree.Dock = DockStyle.Fill;
+            albumTree.BorderStyle = BorderStyle.None;
+            albumTree.BackColor = UiTheme.Surface;
+            albumTree.Font = new Font("Segoe UI", 10);
             albumTree.HideSelection = false;
             albumTree.AfterSelect += AlbumTree_AfterSelect;
             albumTree.AllowDrop = true;
             albumTree.DragEnter += Pilt_DragEnter;
             albumTree.DragDrop += AlbumTree_DragDrop;
-            Controls.Add(albumTree);
+            sidebar.Controls.Add(albumTree, 0, 1);
 
             uusAlbum = new Button();
-            uusAlbum.Text = "Uus album";
-            uusAlbum.Location = new Point(20, 370);
-            uusAlbum.Size = new Size(105, 30);
+            uusAlbum.Text = "+ Uus album";
+            uusAlbum.Dock = DockStyle.Fill;
+            uusAlbum.Margin = new Padding(0, 5, 0, 5);
+            UiTheme.Button(uusAlbum);
+            uusAlbum.Click += (s, e) => CreateAlbum();
+            sidebar.Controls.Add(uusAlbum, 0, 2);
 
+            FlowLayoutPanel albumiTegevused = new FlowLayoutPanel();
+            albumiTegevused.Dock = DockStyle.Fill;
+            albumiTegevused.WrapContents = false;
+            albumiTegevused.Margin = new Padding(0);
             nimetaAlbum = new Button();
             nimetaAlbum.Text = "Nimeta ümber";
-            nimetaAlbum.Location = new Point(130, 370);
-            nimetaAlbum.Size = new Size(110, 30);
-
-            kustutaAlbum = new Button();
-            kustutaAlbum.Text = "Kustuta album";
-            kustutaAlbum.Location = new Point(20, 405);
-            kustutaAlbum.Size = new Size(220, 30);
-            uusAlbum.Click += (s, e) => CreateAlbum();
+            nimetaAlbum.Size = new Size(98, 32);
+            UiTheme.Button(nimetaAlbum);
             nimetaAlbum.Click += (s, e) => RenameAlbum();
+            kustutaAlbum = new Button();
+            kustutaAlbum.Text = "Kustuta";
+            kustutaAlbum.Size = new Size(92, 32);
+            UiTheme.Button(kustutaAlbum);
             kustutaAlbum.Click += (s, e) => DeleteAlbum();
-            Controls.Add(uusAlbum);
-            Controls.Add(nimetaAlbum);
-            Controls.Add(kustutaAlbum);
+            albumiTegevused.Controls.Add(nimetaAlbum);
+            albumiTegevused.Controls.Add(kustutaAlbum);
+            sidebar.Controls.Add(albumiTegevused, 0, 3);
 
-            // Pildifaile saab ka aknasse hiirega lohistada.
+            TableLayoutPanel gallery = new TableLayoutPanel();
+            gallery.Dock = DockStyle.Fill;
+            gallery.Margin = new Padding(18, 0, 0, 0);
+            gallery.RowCount = 5;
+            gallery.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
+            gallery.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            gallery.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            gallery.RowStyles.Add(new RowStyle(SizeType.Absolute, 100));
+            gallery.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+            layout.Controls.Add(gallery, 1, 0);
+
+            TableLayoutPanel header = new TableLayoutPanel();
+            header.Dock = DockStyle.Fill;
+            header.ColumnCount = 2;
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 155));
+            albumiPealkiri = new Label();
+            albumiPealkiri.Text = "Kõik pildid";
+            albumiPealkiri.Font = new Font("Segoe UI", 17, FontStyle.Bold);
+            albumiPealkiri.Dock = DockStyle.Fill;
+            albumiPealkiri.TextAlign = ContentAlignment.MiddleLeft;
+            header.Controls.Add(albumiPealkiri, 0, 0);
+            kuva = new Button();
+            kuva.Text = "+ Lisa pildid";
+            kuva.Dock = DockStyle.Fill;
+            kuva.Margin = new Padding(4, 10, 0, 10);
+            UiTheme.Button(kuva, true);
+            kuva.Click += Kuva_Click;
+            header.Controls.Add(kuva, 1, 0);
+            gallery.Controls.Add(header, 0, 0);
+
+            pildiAla = new Panel();
+            pildiAla.Dock = DockStyle.Fill;
+            pildiAla.AutoScroll = true;
+            pildiAla.BackColor = Color.FromArgb(39, 43, 50);
+            pildiAla.Margin = new Padding(0);
+            pilt = new PictureBox();
+            pilt.Location = new Point(0, 0);
+            pilt.SizeMode = PictureBoxSizeMode.Zoom;
+            pilt.BackColor = pildiAla.BackColor;
+            pildiAla.Controls.Add(pilt);
+            tyhiOlek = new Label();
+            tyhiOlek.Dock = DockStyle.Fill;
+            tyhiOlek.Text = "Siin pole veel pilte\nLisa pilte või lohista need siia";
+            tyhiOlek.Font = new Font("Segoe UI", 12);
+            tyhiOlek.ForeColor = Color.White;
+            tyhiOlek.TextAlign = ContentAlignment.MiddleCenter;
+            tyhiOlek.BackColor = pildiAla.BackColor;
+            pildiAla.Controls.Add(tyhiOlek);
+            pildiAla.Resize += (s, e) =>
+            {
+                if (pilt.Image != null)
+                {
+                    UuendaPildiSuurus();
+                    UuendaPildiAsukoht();
+                }
+            };
+            gallery.Controls.Add(pildiAla, 0, 1);
+
+            info = new Label();
+            info.Dock = DockStyle.Fill;
+            info.TextAlign = ContentAlignment.MiddleLeft;
+            info.ForeColor = UiTheme.Muted;
+            info.AutoEllipsis = true;
+            gallery.Controls.Add(info, 0, 2);
+
+            miniaturid = new FlowLayoutPanel();
+            miniaturid.Dock = DockStyle.Fill;
+            miniaturid.AutoScroll = true;
+            miniaturid.WrapContents = false;
+            miniaturid.FlowDirection = FlowDirection.LeftToRight;
+            miniaturid.BackColor = UiTheme.Surface;
+            miniaturid.Padding = new Padding(6, 5, 6, 3);
+            gallery.Controls.Add(miniaturid, 0, 3);
+
+            TableLayoutPanel toolbar = new TableLayoutPanel();
+            toolbar.Dock = DockStyle.Fill;
+            toolbar.ColumnCount = 2;
+            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
+            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            toolbar.Margin = new Padding(0, 5, 0, 0);
+            gallery.Controls.Add(toolbar, 0, 4);
+
+            FlowLayoutPanel navigation = new FlowLayoutPanel();
+            navigation.Dock = DockStyle.Fill;
+            navigation.WrapContents = false;
+            navigation.Margin = new Padding(0);
+            eelmine = new Button();
+            eelmine.Text = "‹";
+            eelmine.Size = new Size(44, 38);
+            UiTheme.Button(eelmine);
+            eelmine.Click += Eelmine_Click;
+            pildiLoendur = new Label();
+            pildiLoendur.Text = "0 / 0";
+            pildiLoendur.Size = new Size(78, 38);
+            pildiLoendur.TextAlign = ContentAlignment.MiddleCenter;
+            jargmine = new Button();
+            jargmine.Text = "›";
+            jargmine.Size = new Size(44, 38);
+            UiTheme.Button(jargmine);
+            jargmine.Click += Jargmine_Click;
+            navigation.Controls.Add(eelmine);
+            navigation.Controls.Add(pildiLoendur);
+            navigation.Controls.Add(jargmine);
+            toolbar.Controls.Add(navigation, 0, 0);
+
+            FlowLayoutPanel actions = new FlowLayoutPanel();
+            actions.Dock = DockStyle.Fill;
+            actions.FlowDirection = FlowDirection.RightToLeft;
+            actions.WrapContents = false;
+            actions.Margin = new Padding(0);
+            toolbar.Controls.Add(actions, 1, 0);
+            puhasta = new Button();
+            puhasta.Text = "Eemalda albumist";
+            puhasta.Size = new Size(145, 38);
+            UiTheme.Button(puhasta);
+            puhasta.Click += Puhasta_Click;
+            moveToAlbum = new Button();
+            moveToAlbum.Text = "Teise albumisse";
+            moveToAlbum.Size = new Size(135, 38);
+            UiTheme.Button(moveToAlbum);
+            moveToAlbum.Click += MoveToAlbum_Click;
+            venita = new CheckBox();
+            venita.Text = "Venita pilt";
+            venita.Size = new Size(100, 38);
+            venita.TextAlign = ContentAlignment.MiddleLeft;
+            venita.CheckedChanged += Venita_CheckedChanged;
+            lemmik = new CheckBox();
+            lemmik.Text = "★ Lemmik";
+            lemmik.Size = new Size(92, 38);
+            lemmik.TextAlign = ContentAlignment.MiddleLeft;
+            lemmik.CheckedChanged += Lemmik_CheckedChanged;
+            actions.Controls.Add(puhasta);
+            actions.Controls.Add(moveToAlbum);
+            actions.Controls.Add(venita);
+            actions.Controls.Add(lemmik);
+
+            // Pildifailid saab lohistada aknasse ja hiirerattaga pilti suumida.
             AllowDrop = true;
             pildiAla.AllowDrop = true;
             pilt.AllowDrop = true;
-
+            tyhiOlek.AllowDrop = true;
             DragEnter += Pilt_DragEnter;
             DragDrop += Pilt_DragDrop;
-
             pildiAla.DragEnter += Pilt_DragEnter;
             pildiAla.DragDrop += Pilt_DragDrop;
-
             pilt.DragEnter += Pilt_DragEnter;
             pilt.DragDrop += Pilt_DragDrop;
-
-            // Hiireratas muudab pildi suurust.
+            tyhiOlek.DragEnter += Pilt_DragEnter;
+            tyhiOlek.DragDrop += Pilt_DragDrop;
             MouseWheel += Pilt_MouseWheel;
-
             pilt.MouseEnter += Pilt_MouseEnter;
             pildiAla.MouseEnter += Pilt_MouseEnter;
 
-            // Avamisel loeme varem salvestatud albumid sisse.
             LoadLibrary();
             RefreshTree(null);
         }
@@ -230,8 +317,6 @@ namespace KolmRakendust
                 if (!string.IsNullOrWhiteSpace(hash))
                     lemmikud.Add(hash.Trim());
 
-            // Vana versiooni lemmikud lisame uude fototeeki.
-            if (!File.Exists(LibraryFile)) LoeLemmikud();
             if (library.Albums.Count == 0)
             {
                 library.Albums.Add(new PhotoAlbum { Name = "Minu pildid" });
@@ -338,7 +423,9 @@ namespace KolmRakendust
             ainultLemmikud = (node.Tag as string) == "favorites";
             if (ainultLemmikud)
                 FilterFavorites();
+            albumiPealkiri.Text = node.Text;
             praegunePilt = 0;
+            UuendaMiniaturid();
             if (pildid.Count == 0) TuhjendaPilt();
             else KuvaPilt();
             puhasta.Enabled = activeAlbum != null && pildid.Count > 0;
@@ -360,6 +447,79 @@ namespace KolmRakendust
                 catch (IOException) { }
                 catch (UnauthorizedAccessException) { }
             }
+        }
+
+        private void UuendaMiniaturid()
+        {
+            miniaturid.SuspendLayout();
+            List<Control> previous = new List<Control>();
+            foreach (Control control in miniaturid.Controls)
+            {
+                previous.Add(control);
+                PictureBox preview = control.Controls.Count > 0 ? control.Controls[0] as PictureBox : null;
+                if (preview != null && preview.Image != null)
+                    preview.Image.Dispose();
+            }
+            miniaturid.Controls.Clear();
+            foreach (Control control in previous)
+                control.Dispose();
+
+            for (int i = 0; i < pildid.Count; i++)
+            {
+                int index = i;
+                Panel tile = new Panel();
+                tile.Size = new Size(86, 76);
+                tile.Padding = new Padding(3);
+                tile.Margin = new Padding(4, 3, 4, 3);
+                tile.Cursor = Cursors.Hand;
+                PictureBox preview = new PictureBox();
+                preview.Dock = DockStyle.Fill;
+                preview.SizeMode = PictureBoxSizeMode.Zoom;
+                preview.BackColor = UiTheme.Background;
+                try
+                {
+                    using (Image source = Image.FromFile(pildid[i]))
+                    {
+                        // Hoidame ribal ainult väikseid pilte, mitte originaale.
+                        Bitmap small = new Bitmap(80, 68);
+                        using (Graphics graphics = Graphics.FromImage(small))
+                        {
+                            graphics.Clear(UiTheme.Background);
+                            graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                            float scale = Math.Min(80f / source.Width, 68f / source.Height);
+                            int width = Math.Max(1, (int)(source.Width * scale));
+                            int height = Math.Max(1, (int)(source.Height * scale));
+                            graphics.DrawImage(source, (80 - width) / 2, (68 - height) / 2, width, height);
+                        }
+                        preview.Image = small;
+                    }
+                }
+                catch (Exception)
+                {
+                    preview.BackColor = UiTheme.Border;
+                }
+                tile.Controls.Add(preview);
+                tile.Click += (s, e) => ValiMiniatuur(index);
+                preview.Click += (s, e) => ValiMiniatuur(index);
+                miniaturid.Controls.Add(tile);
+            }
+            miniaturid.ResumeLayout();
+            UuendaMiniatuuriValik();
+        }
+
+        private void ValiMiniatuur(int index)
+        {
+            if (index < 0 || index >= pildid.Count) return;
+            praegunePilt = index;
+            KuvaPilt();
+        }
+
+        private void UuendaMiniatuuriValik()
+        {
+            for (int i = 0; i < miniaturid.Controls.Count; i++)
+                miniaturid.Controls[i].BackColor = i == praegunePilt ? UiTheme.Accent : UiTheme.Surface;
+            if (pildid.Count > 0 && praegunePilt < miniaturid.Controls.Count)
+                miniaturid.ScrollControlIntoView(miniaturid.Controls[praegunePilt]);
         }
 
         private static string AskAlbumName(string title, string current)
@@ -587,10 +747,13 @@ namespace KolmRakendust
 
                 zoom = 1.0f;
 
-                pilt.Size = new Size(700, 360);
-                pilt.Location = new Point(0, 0);
+                UuendaPildiSuurus();
+                UuendaPildiAsukoht();
 
                 pildiAla.AutoScrollPosition = new Point(0, 0);
+                tyhiOlek.Visible = false;
+                eelmine.Enabled = jargmine.Enabled = pildid.Count > 1;
+                venita.Enabled = lemmik.Enabled = true;
 
                 // Räsi järgi saame aru, kas see pilt on lemmik.
                 praeguneHash = LeiaSHA256(pildid[praegunePilt]);
@@ -600,15 +763,20 @@ namespace KolmRakendust
                 lemmikuUuendamine = false;
 
                 UuendaInfo();
+                UuendaMiniatuuriValik();
             }
             catch
             {
                 pilt.Image = null;
+                tyhiOlek.Text = "Pilti ei saa avada või faili ei leitud";
+                tyhiOlek.Visible = true;
+                lemmik.Enabled = venita.Enabled = false;
                 praeguneHash = "";
                 lemmikuUuendamine = true;
                 lemmik.Checked = false;
                 lemmikuUuendamine = false;
                 info.Text = "Pilti ei saa avada või faili ei leitud: " + pildid[praegunePilt];
+                UuendaMiniatuuriValik();
             }
         }
 
@@ -668,15 +836,15 @@ namespace KolmRakendust
             if (ainultLemmikud && !lemmik.Checked)
             {
                 pildid.RemoveAt(praegunePilt);
+                if (praegunePilt >= pildid.Count)
+                    praegunePilt = Math.Max(0, pildid.Count - 1);
+                UuendaMiniaturid();
 
                 if (pildid.Count == 0)
                 {
                     TuhjendaPilt();
                     return;
                 }
-
-                if (praegunePilt >= pildid.Count)
-                    praegunePilt = pildid.Count - 1;
 
                 KuvaPilt();
             }
@@ -763,10 +931,7 @@ namespace KolmRakendust
             if (zoom > 3.0f)
                 zoom = 3.0f;
 
-            pilt.Size = new Size(
-                (int)(700 * zoom),
-                (int)(360 * zoom)
-            );
+            UuendaPildiSuurus();
 
             UuendaPildiAsukoht();
             UuendaInfo();
@@ -784,6 +949,13 @@ namespace KolmRakendust
                 y = (pildiAla.ClientSize.Height - pilt.Height) / 2;
 
             pilt.Location = new Point(x, y);
+        }
+
+        private void UuendaPildiSuurus()
+        {
+            pilt.Size = new Size(
+                Math.Max(1, (int)(pildiAla.ClientSize.Width * zoom)),
+                Math.Max(1, (int)(pildiAla.ClientSize.Height * zoom)));
         }
 
         private void UuendaInfo()
@@ -824,6 +996,10 @@ namespace KolmRakendust
             info.Text = "";
             pildiLoendur.Text = "0 / 0";
             praeguneHash = "";
+            tyhiOlek.Text = "Siin pole veel pilte\nLisa pilte või lohista need siia";
+            tyhiOlek.Visible = true;
+            eelmine.Enabled = jargmine.Enabled = false;
+            venita.Enabled = lemmik.Enabled = false;
 
             lemmikuUuendamine = true;
             lemmik.Checked = false;
@@ -843,6 +1019,12 @@ namespace KolmRakendust
         {
             if (pilt.Image != null)
                 pilt.Image.Dispose();
+            foreach (Control tile in miniaturid.Controls)
+            {
+                PictureBox preview = tile.Controls.Count > 0 ? tile.Controls[0] as PictureBox : null;
+                if (preview != null && preview.Image != null)
+                    preview.Image.Dispose();
+            }
 
             base.OnFormClosed(e);
         }

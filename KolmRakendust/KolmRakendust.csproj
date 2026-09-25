@@ -47,6 +47,7 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="PhotoLibrary.cs" />
+    <Compile Include="UiTheme.cs" />
     <Compile Include="MatemaatikaMang.cs">
       <SubType>Form</SubType>
     </Compile>
